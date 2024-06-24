@@ -1,55 +1,82 @@
 package promote
 
+//Sha256(52B)
+//T_sha256_52()
+
+//Accumulator:scalarmul+zkp
+//T_multithread()+T_access()+Merkle
+
 import (
-	ecctedwards "github.com/consensys/gnark-crypto/ecc/twistededwards"
+	"crypto/sha256"
+	"fmt"
+
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/std/algebra/native/twistededwards"
-	"github.com/consensys/gnark/std/math/cmp"
+	"github.com/consensys/gnark/frontend/cs/r1cs"
+	"github.com/consensys/gnark/std/hash/sha2"
+	"github.com/consensys/gnark/std/math/uints"
 )
 
-type promoteCircuit struct {
-	Sk            frontend.Variable //[]uints.U8 //
-	ID1           frontend.Variable
-	Id            frontend.Variable //[]uints.U8 //
-	IDk           frontend.Variable
-	Random        frontend.Variable
-	Accumulator   twistededwards.Point //X->Leaf
-	D             frontend.Variable
-	C             twistededwards.Point
-	ExpectedAccmT twistededwards.Point `gnark:",public"`
-	ExpectedDT    twistededwards.Point `gnark:",public"`
-	ExpectedCT    twistededwards.Point `gnark:",public"`
-	ExpectedCidT  twistededwards.Point `gnark:",public"`
-	ExpectedHash  frontend.Variable    `gnark:",public"`
+type sha2Circuit52 struct {
+	In       []uints.U8
+	Expected [32]uints.U8 `gnark:",public"`
 }
 
-func (c *promoteCircuit) Define(api frontend.API) error {
-	api.AssertIsEqual(cmp.IsLessOrEqual(api, c.Id, c.IDk), 1)
-	api.AssertIsEqual(cmp.IsLessOrEqual(api, c.ID1, c.Id), 1)
+func (c *sha2Circuit52) Define(api frontend.API) error {
 
-	curvepara := ecctedwards.BN254
-	curve, err := twistededwards.NewEdCurve(api, curvepara)
+	h, err := sha2.New(api)
 	if err != nil {
 		return err
 	}
+	uapi, err := uints.New[uints.U32](api)
+	if err != nil {
+		return err
+	}
+	h.Write(c.In)
+	res := h.Sum()
 
-	_g0, _ := twistededwards.GetCurveParams(curvepara)
-	g0 := twistededwards.Point{X: _g0.Base[0], Y: _g0.Base[1]}
+	//h2, _ := sha2.New(api)
+	//h2.Write(res)
+	//rres := h2.Sum()
 
-	expectedaccmt := curve.ScalarMul(c.Accumulator, c.Random)
-	api.AssertIsEqual(expectedaccmt.X, c.ExpectedAccmT.X)
-
-	expecteddt := curve.ScalarMul(g0, api.Mul(c.D, c.Random))
-	api.AssertIsEqual(expecteddt.X, c.ExpectedDT.X)
-
-	expectedct := curve.ScalarMul(c.C, c.Random)
-	api.AssertIsEqual(expectedct.X, c.ExpectedCT.X)
-
-	expectedcidt := curve.ScalarMul(c.C, api.Mul(c.Id, c.Random))
-	api.AssertIsEqual(expectedcidt.X, c.ExpectedCidT.X)
-
-	//h,_:=sha2.New(api)
-	//h.Write()
-
+	if len(res) != 32 {
+		return fmt.Errorf("not 32 bytes")
+	}
+	for i := range c.Expected {
+		uapi.ByteAssertEq(c.Expected[i], res[i])
+	}
 	return nil
+}
+
+func T_sha256_52() {
+	bts := make([]byte, 52)
+	//fmt.Println(bts)
+	dgst := sha256.Sum256(bts)
+
+	//dgst = sha256.Sum256(dgst[:])
+	//fmt.Println(dgst)
+	circuit := sha2Circuit52{
+		In: uints.NewU8Array(bts),
+	}
+	copy(circuit.Expected[:], uints.NewU8Array(dgst[:]))
+	//
+	//fmt.Println(circuit.In)
+
+	r1cs, _ := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
+	pk, vk, _ := groth16.Setup(r1cs)
+	//
+
+	assignment := sha2Circuit52{
+		In: uints.NewU8Array(bts),
+	}
+	copy(assignment.Expected[:], uints.NewU8Array(dgst[:]))
+
+	witness, _ := frontend.NewWitness(&assignment, ecc.BN254.ScalarField())
+	publicWitness, _ := witness.Public()
+	proof, _ := groth16.Prove(r1cs, pk, witness)
+	err := groth16.Verify(proof, vk, publicWitness)
+	if err != nil {
+		fmt.Println("invalid proof")
+	}
 }

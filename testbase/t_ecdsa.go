@@ -85,41 +85,4 @@ func T_ecdsa() {
 	if err != nil {
 		fmt.Println("invalid proof")
 	}
-
-	// // building the circuit...
-	/*ccs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, &circuit)
-	if err != nil {
-		fmt.Println("circuit compilation error")
-	}
-
-	scs := ccs.(*cs.SparseR1CS)
-	srs, srsLagrange, err := unsafekzg.NewSRS(scs)
-	if err != nil {
-		panic(err)
-	}
-
-	witnessFull, err := frontend.NewWitness(&witness, ecc.BN254.ScalarField())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	witnessPublic, err := frontend.NewWitness(&witness, ecc.BN254.ScalarField(), frontend.PublicOnly())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pk, vk, err := plonk.Setup(ccs, srs, srsLagrange)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	proof, err := plonk.Prove(ccs, pk, witnessFull)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = plonk.Verify(proof, vk, witnessPublic)
-	if err != nil {
-		log.Fatal(err)
-	}*/
 }

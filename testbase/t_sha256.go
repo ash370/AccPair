@@ -3,16 +3,13 @@ package testbase
 import (
 	"crypto/sha256"
 	"fmt"
-	"log"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark/backend/plonk"
-	cs "github.com/consensys/gnark/constraint/bn254"
+	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/frontend/cs/scs"
+	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/std/hash/sha2"
 	"github.com/consensys/gnark/std/math/uints"
-	"github.com/consensys/gnark/test/unsafekzg"
 )
 
 type sha2Circuit struct {
@@ -46,8 +43,8 @@ func (c *sha2Circuit) Define(api frontend.API) error {
 	return nil
 }
 
-func T_sha256() {
-	bts := make([]byte, 512)
+func T_sha256(len int) {
+	bts := make([]byte, len)
 	//fmt.Println(bts)
 	dgst := sha256.Sum256(bts)
 
@@ -60,7 +57,7 @@ func T_sha256() {
 	//
 	//fmt.Println(circuit.In)
 
-	/*r1cs, _ := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
+	r1cs, _ := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	pk, vk, _ := groth16.Setup(r1cs)
 	//
 
@@ -75,46 +72,5 @@ func T_sha256() {
 	err := groth16.Verify(proof, vk, publicWitness)
 	if err != nil {
 		fmt.Println("invalid proof")
-	}*/
-
-	witness := sha2Circuit{
-		In: uints.NewU8Array(bts),
-	}
-	copy(witness.Expected[:], uints.NewU8Array(dgst[:]))
-
-	ccs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, &circuit)
-	if err != nil {
-		fmt.Println("circuit compilation error")
-	}
-
-	scs := ccs.(*cs.SparseR1CS)
-	srs, srsLagrange, err := unsafekzg.NewSRS(scs)
-	if err != nil {
-		panic(err)
-	}
-
-	witnessFull, err := frontend.NewWitness(&witness, ecc.BN254.ScalarField())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	witnessPublic, err := frontend.NewWitness(&witness, ecc.BN254.ScalarField(), frontend.PublicOnly())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pk, vk, err := plonk.Setup(ccs, srs, srsLagrange)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	proof, err := plonk.Prove(ccs, pk, witnessFull)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = plonk.Verify(proof, vk, witnessPublic)
-	if err != nil {
-		log.Fatal(err)
 	}
 }

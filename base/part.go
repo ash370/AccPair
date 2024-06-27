@@ -1,8 +1,10 @@
 package base
 
 import (
+	"bufio"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/plonk"
@@ -61,6 +63,17 @@ func T_part() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	outputFile, err := os.Create("partition_vk.txt")
+	if err != nil {
+		fmt.Println("无法创建文件：", err)
+		return
+	}
+	defer outputFile.Close()
+
+	writer := bufio.NewWriter(outputFile)
+	size, _ := vk.WriteTo(writer)
+	fmt.Println("size of vk(partition):", size)
 
 	proof, err := plonk.Prove(ccs, pk, witnessFull)
 	if err != nil {

@@ -6,11 +6,13 @@ package middleware
 //T_part()+T_sha256_plonk(len)+T_ecdsa_Plonk()
 
 import (
+	"bufio"
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
 	"log"
 	"math/big"
+	"os"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	eccecdsa "github.com/consensys/gnark-crypto/ecc/secp256k1/ecdsa"
@@ -195,6 +197,17 @@ func T_ecdsa_Plonk() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	outputFile, err := os.Create("ecdsa_vk.txt")
+	if err != nil {
+		fmt.Println("无法创建文件：", err)
+		return
+	}
+	defer outputFile.Close()
+
+	writer := bufio.NewWriter(outputFile)
+	size, _ := vk.WriteTo(writer)
+	fmt.Println("size of vk(ecdsa):", size)
 
 	proof, err := plonk.Prove(ccs, pk, witnessFull)
 	if err != nil {
